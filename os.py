@@ -1,5 +1,5 @@
 import heapq
-
+#pip heapq
 class Process:
     def __init__(self, pid, arrival_time, burst_time, memory_required):
         self.pid = pid
@@ -80,7 +80,7 @@ class Scheduler:
 
     def simulate_fcfs(self, processes):
         time = 0
-        processes.sort(key=lambda p: p.arrival_time)
+        processes.sort(key=lambda p: p.arrival_time)  # Sort by arrival time
         completed = []
 
         for p in processes:
@@ -98,8 +98,62 @@ class Scheduler:
 
     def simulate_sjf(self, processes):
         time = 0
-        queue = []
+        processes.sort(key=lambda p: p.arrival_time)  # Sort by arrival time
         completed = []
-        processes.sort(key=lambda x: x.arrival_time)
+        ready_queue = []
         i = 0
-        skipped = set()
+        skipped = set()  # Track skipped processes due to memory issues
+
+        while i < len(processes) or ready_queue:
+            # Add all processes that have arrived by the current time to the ready queue
+            while i < len(processes) and processes[i].arrival_time <= time:
+                ready_queue.append(processes[i])
+                i += 1
+
+            # If there are processes in the ready queue, sort by burst time (SJF)
+            if ready_queue:
+                ready_queue.sort(key=lambda p: p.burst_time)  # Sort by burst time (SJF)
+                process_to_execute = ready_queue.pop(0)  # Select the process with the shortest burst time
+
+                # Allocate memory for the selected process
+                if not self.memory_manager.allocate(process_to_execute, self.strategy):
+                    print(f"Process {process_to_execute.pid} skipped due to insufficient memory.")
+                    skipped.add(process_to_execute.pid)
+                    continue  # Skip this process if memory allocation fails
+
+                # Execute the process
+                process_to_execute.start_time = time
+                time += process_to_execute.burst_time
+                process_to_execute.completion_time = time
+
+                # Deallocate memory after process execution
+                self.memory_manager.deallocate(process_to_execute.pid)
+
+                # Add the completed process to the completed list
+                completed.append(process_to_execute)
+
+            else:
+                # No process is ready to execute, so advance time to the next process arrival
+                if i < len(processes):
+                    time = processes[i].arrival_time
+
+        return completed
+
+# Example usage:
+processes = [
+    Process(pid=1, arrival_time=0, burst_time=4, memory_required=50),
+    Process(pid=2, arrival_time=1, burst_time=3, memory_required=30),
+    Process(pid=3, arrival_time=2, burst_time=2, memory_required=20),
+    Process(pid=4, arrival_time=3, burst_time=5, memory_required=100),
+    Process(pid=5, arrival_time=4, burst_time=1, memory_required=40)
+]
+
+# Scheduler with 150 units of memory and 'first_fit' allocation strategy
+scheduler = Scheduler(memory_size=150, strategy='first_fit')
+
+# Simulate SJF scheduling
+completed = scheduler.simulate_sjf(processes)
+
+# Print the results
+for process in completed:
+    print(process)
